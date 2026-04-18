@@ -1,0 +1,11 @@
+{
+  "name": "Lapor Ajik",
+  "description": "Platform pelaporan warga untuk menyampaikan berbagai aspirasi dan masalah lingkungan kepada Ajik, demi kemajuan bersama.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "Firebase Firestore",
+    "Firebase Auth"
+  ]
+}

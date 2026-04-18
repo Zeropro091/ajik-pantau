@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #1A1A1A; /* Ink */
+  --color-brand-accent: #0047AB; /* Accent */
+  --color-page-bg: #F9F8F6; /* Page BG */
+  --color-border-subtle: rgba(26, 26, 26, 0.15);
+  --font-serif: 'Georgia', serif;
+  --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-page-bg text-brand-primary font-sans;
+  }
+}

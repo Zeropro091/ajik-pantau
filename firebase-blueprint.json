@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "Report": {
+      "title": "Citizen Report",
+      "description": "A report submitted by a citizen about issues like garbage, school incidents, etc.",
+      "type": "object",
+      "properties": {
+        "reporterName": { "type": "string", "description": "Full name of the reporter" },
+        "reporterPhone": { "type": "string", "description": "Phone number for contact" },
+        "description": { "type": "string", "description": "Detailed description of the issue" },
+        "mediaUrl": { "type": "string", "format": "uri", "description": "URL to the uploaded photo or video" },
+        "mediaType": { "type": "string", "enum": ["image", "video", "none"] },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterName", "reporterPhone", "description", "status", "createdAt", "updatedAt"]
+    },
+    "Admin": {
+      "title": "System Administrator",
+      "description": "A user with administrative privileges.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "Email address of the administrator" },
+        "role": { "type": "string", "enum": ["admin", "superadmin"] }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "reports/{reportId}": {
+      "schema": "Report",
+      "description": "Collection of all citizen reports"
+    },
+    "admins/{uid}": {
+      "schema": "Admin",
+      "description": "Collection of authorized administrators"
+    }
+  }
+}

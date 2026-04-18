@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == "putuari0911@gmail.com"
+      );
+    }
+
+    function isValidReport(report) {
+      return report.reporterName is string && report.reporterName.size() > 0 && report.reporterName.size() <= 100
+          && report.reporterPhone is string && report.reporterPhone.size() > 0 && report.reporterPhone.size() <= 30
+          && report.description is string && report.description.size() > 0 && report.description.size() <= 2000
+          && report.status in ['pending', 'processing', 'completed']
+          && (report.mediaType in ['image', 'video', 'none'])
+          && report.createdAt == request.time
+          && report.updatedAt == request.time;
+    }
+
+    match /reports/{reportId} {
+      // Anyone can submit a report
+      allow create: if isValidReport(request.resource.data);
+      
+      // Only authenticated admins can view and update
+      allow read, update: if isAdmin();
+      
+      // Update validation
+      allow update: if (
+        isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+        request.resource.data.updatedAt == request.time
+      );
+    }
+
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+    }
+  }
+}
