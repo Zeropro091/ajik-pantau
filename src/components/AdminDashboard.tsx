@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, deleteDoc, getDocs, writeBatch, addDoc } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { Report } from '../types';
 import { 
@@ -17,7 +17,8 @@ import {
   User,
   Eye,
   X,
-  Phone
+  Phone,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -25,6 +26,18 @@ const isVideoUrl = (url: string) => {
   if (!url) return false;
   const lowerUrl = url.toLowerCase();
   return lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.ogg') || lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be') || lowerUrl.includes('vimeo.com');
+};
+
+const safeUrl = (url: string) => {
+  if (!url) return '#';
+  if (url.startsWith('data:image/')) return url;
+  try {
+    const parsed = new URL(url);
+    if (['http:', 'https:'].includes(parsed.protocol)) return url;
+  } catch (e) {
+    // ignore
+  }
+  return '#';
 };
 
 export default function AdminDashboard() {
@@ -35,12 +48,14 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState('all');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
         // Bootstrap admin email check
-        const isBootstrapAdmin = u.email === 'putuari0911@gmail.com';
+        const isBootstrapAdmin = ['putuari0911@gmail.com', 'sucayaputra8@gmail.com'].includes(u.email || '');
         
         try {
           const { getDoc } = await import('firebase/firestore');
@@ -84,9 +99,105 @@ export default function AdminDashboard() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!reportToDelete) return;
+    
+    try {
+      await deleteDoc(doc(db, 'reports', reportToDelete));
+      if (selectedReport?.id === reportToDelete) {
+        setSelectedReport(null);
+      }
+      setReportToDelete(null);
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      alert('Gagal menghapus laporan. Pastikan Anda memiliki hak akses.');
+      setReportToDelete(null);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    setReportToDelete(id);
+  };
+
+  const seedData = async () => {
+    if (!window.confirm('PERINGATAN: Ini akan menghapus semua laporan saat ini dan menggantinya dengan data dummy. Lanjutkan?')) return;
+    
+    try {
+      // 1. Delete existing reports
+      const querySnapshot = await getDocs(collection(db, 'reports'));
+      const batch = writeBatch(db);
+      querySnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+
+      // 2. Add dummy data
+      const dummyReports = [
+        {
+          reporterName: 'Budi Santoso',
+          reporterPhone: '081234567890',
+          description: 'Terdapat tumpukan sampah liar di perempatan jalan Mawar. Baunya sangat menyengat dan mengganggu pengguna jalan. Harap segera ditindaklanjuti. Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+          status: 'pending',
+          mediaType: 'none',
+          mediaUrl: '',
+        },
+        {
+          reporterName: 'Siti Aminah',
+          reporterPhone: '081987654321',
+          description: 'Lampu jalan di depan SDN 1 Cempaka mati sejak 2 minggu yang lalu. Kondisi jalan sangat gelap pada malam hari dan rawan kecelakaan. Sed tempor incididunt ut labore et dolore magna aliqua.',
+          status: 'processing',
+          mediaType: 'none',
+          mediaUrl: '',
+        },
+        {
+          reporterName: 'Agus Pratama',
+          reporterPhone: '085678901234',
+          description: 'Fasilitas mainan anak di taman kota banyak yang rusak dan berkarat. Sangat berbahaya bagi balita yang bermain. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore.',
+          status: 'completed',
+          mediaType: 'none',
+          mediaUrl: '',
+        },
+        {
+          reporterName: 'Linda Wijaya',
+          reporterPhone: '081223344556',
+          description: 'Pohon angsana tua di pinggir jalan Sudirman cabangnya sudah sangat menjorok ke aspal dan rawan tumbang menimpa kabel listrik. Excepteur sint occaecat cupidatat non proident.',
+          status: 'pending',
+          mediaType: 'none',
+          mediaUrl: '',
+        }
+      ];
+
+      for (const report of dummyReports) {
+        await addDoc(collection(db, 'reports'), {
+          ...report,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      alert('Berhasil mereset data!');
+    } catch (error) {
+      console.error('Error seeding data:', error);
+      alert('Gagal mereset data. Pastikan Anda memiliki akses admin.');
+    }
+  };
+
   const login = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      if (error.code === 'auth/popup-blocked') {
+        alert('Browser Anda memblokir popup login. Harap izinkan popup untuk situs ini, atau buka aplikasi di tab baru.');
+      } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        // User closed the popup before finishing, or a prior request was cancelled.
+        // We can just ignore or show a small hint.
+        console.warn('Login dibatalkan pengguna.');
+      } else {
+        alert('Terjadi kesalahan saat login: ' + error.message);
+      }
+    }
   };
 
   const logout = () => signOut(auth);
@@ -141,11 +252,14 @@ export default function AdminDashboard() {
           <h2 className="font-serif text-3xl font-normal leading-tight">Panel Pantauan</h2>
           <p className="text-slate-500 text-sm mt-2">Kelola dan tindak lanjuti laporan dari warga.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="text-right">
             <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status</span>
             <span className="text-xs font-bold text-brand-primary uppercase tracking-wider">{user.displayName}</span>
           </div>
+          <button onClick={seedData} className="px-3 py-2 border border-brand-primary text-brand-primary font-bold hover:bg-brand-primary hover:text-white uppercase tracking-widest text-[10px] transition-all" title="Reset Data (Mock Data)">
+            Reset Data
+          </button>
           <button onClick={logout} className="p-2 border border-border-subtle hover:bg-slate-50 text-slate-400 hover:text-red-500 transition-all">
             <LogOut className="w-5 h-5" />
           </button>
@@ -216,6 +330,13 @@ export default function AdminDashboard() {
 
             <div className="flex items-center gap-4 self-end md:self-center">
               <button
+                onClick={() => handleDelete(report.id)}
+                className="text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border border-border-subtle hover:text-red-500 transition-all hover:bg-slate-50"
+                title="Hapus Laporan"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+              <button
                 onClick={() => setSelectedReport(report)}
                 className="text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border border-border-subtle hover:border-brand-primary bg-white text-brand-primary transition-all hover:bg-slate-50"
               >
@@ -245,6 +366,41 @@ export default function AdminDashboard() {
       </div>
 
       <AnimatePresence>
+        {reportToDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white border-2 border-brand-primary w-full max-w-sm p-6 shadow-2xl relative"
+            >
+              <h3 className="font-serif text-xl font-bold text-slate-900 mb-2">Hapus Laporan?</h3>
+              <p className="text-slate-600 text-sm mb-6">Tindakan ini tidak dapat dibatalkan. Laporan akan dihapus secara permanen dari sistem.</p>
+              <div className="flex gap-3 justify-end leading-none">
+                <button
+                  onClick={() => setReportToDelete(null)}
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="w-3 h-3" /> Hapus
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {selectedReport && (
           <motion.div 
             initial={{ opacity: 0 }} 
@@ -266,12 +422,21 @@ export default function AdminDashboard() {
                     ID: {selectedReport.id}
                   </span>
                 </div>
-                <button 
-                  onClick={() => setSelectedReport(null)}
-                  className="p-2 text-slate-400 hover:text-brand-primary hover:bg-slate-100 transition-colors border border-transparent hover:border-border-subtle"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleDelete(selectedReport.id)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100 mr-2"
+                    title="Hapus Laporan"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => setSelectedReport(null)}
+                    className="p-2 text-slate-400 hover:text-brand-primary hover:bg-slate-100 transition-colors border border-transparent hover:border-border-subtle"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
 
               {/* Modal Content */}
@@ -333,19 +498,19 @@ export default function AdminDashboard() {
                   <div>
                     <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Lampiran Bukti</span>
                     <div className="border border-border-subtle p-2 bg-slate-50 relative group">
-                      <a href={selectedReport.mediaUrl} target="_blank" rel="noreferrer" className="absolute top-4 right-4 bg-black/70 text-white p-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" title="Buka di tab baru">
+                      <a href={safeUrl(selectedReport.mediaUrl)} target="_blank" rel="noreferrer" className="absolute top-4 right-4 bg-black/70 text-white p-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" title="Buka di tab baru">
                         <ExternalLink className="w-4 h-4" />
                       </a>
                       {selectedReport.mediaType === 'video' || isVideoUrl(selectedReport.mediaUrl) ? (
                         <div className="aspect-video bg-black flex items-center justify-center relative">
                            {/* For external broad links like youtube, render a generic clickable fallback. Basic tags fall back naturally if failing */}
                            {selectedReport.mediaUrl.includes('youtube.com') || selectedReport.mediaUrl.includes('youtu.be') ? (
-                             <a href={selectedReport.mediaUrl} target="_blank" rel="noreferrer" className="text-white hover:underline flex items-center gap-2">
+                             <a href={safeUrl(selectedReport.mediaUrl)} target="_blank" rel="noreferrer" className="text-white hover:underline flex items-center gap-2">
                                 Buka Video YouTube <ExternalLink className="w-4 h-4" />
                              </a>
                            ) : (
                              <video controls className="w-full h-full object-contain">
-                                <source src={selectedReport.mediaUrl} />
+                                <source src={safeUrl(selectedReport.mediaUrl)} />
                                 Browser Anda tidak medukung tag video.
                              </video>
                            )}

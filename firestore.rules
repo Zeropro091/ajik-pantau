@@ -14,16 +14,22 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == "putuari0911@gmail.com"
+        (request.auth.token.email_verified == true && (request.auth.token.email == "putuari0911@gmail.com" || request.auth.token.email == "sucayaputra8@gmail.com"))
       );
     }
 
     function isValidReport(report) {
-      return report.reporterName is string && report.reporterName.size() > 0 && report.reporterName.size() <= 100
+      let allowedKeys = ['reporterName', 'reporterPhone', 'description', 'status', 'mediaType', 'mediaUrl', 'createdAt', 'updatedAt'];
+      let keysDiff = report.diff({});
+      return keysDiff.affectedKeys().hasOnly(allowedKeys)
+          && report.keys().hasAll(['reporterName', 'reporterPhone', 'description', 'status', 'mediaType', 'createdAt', 'updatedAt'])
+          && report.reporterName is string && report.reporterName.size() > 0 && report.reporterName.size() <= 100
           && report.reporterPhone is string && report.reporterPhone.size() > 0 && report.reporterPhone.size() <= 30
           && report.description is string && report.description.size() > 0 && report.description.size() <= 2000
           && report.status in ['pending', 'processing', 'completed']
           && (report.mediaType in ['image', 'video', 'none'])
+          && (report.get('mediaUrl', '') is string)
+          && (report.get('mediaUrl', '').size() <= 1048576) // max 1MB for base64 image limit, roughly
           && report.createdAt == request.time
           && report.updatedAt == request.time;
     }
@@ -32,15 +38,21 @@ service cloud.firestore {
       // Anyone can submit a report
       allow create: if isValidReport(request.resource.data);
       
-      // Only authenticated admins can view and update
-      allow read, update: if isAdmin();
+      // Allow public list of reports for the feed
+      allow list: if resource.data.status in ['pending', 'processing', 'completed'] || isAdmin();
       
-      // Update validation
+      // Allow getting specific report
+      allow get: if true;
+      
+      // Only authenticated admins can update and delete
       allow update: if (
         isAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+        request.resource.data.status in ['pending', 'processing', 'completed'] &&
         request.resource.data.updatedAt == request.time
       );
+      
+      allow delete: if isAdmin();
     }
 
     match /admins/{uid} {

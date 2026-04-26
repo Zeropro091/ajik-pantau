@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReportForm from './components/ReportForm';
 import AdminDashboard from './components/AdminDashboard';
+import PublicFeed from './components/PublicFeed';
 import { Megaphone, LayoutDashboard, ShieldCheck, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -56,18 +57,23 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="p-10"
+              className="p-6 md:p-10 flex flex-col md:flex-row gap-12"
             >
-              <div className="mb-10 text-center md:text-left">
-                <h2 className="font-serif text-4xl md:text-5xl font-normal leading-tight">
-                  Sampaikan Keluhan Anda
-                </h2>
-                <div className="h-0.5 w-20 bg-brand-primary mt-4 mb-6"></div>
-                <p className="text-slate-500 max-w-xl">
-                  Platform resmi pengaduan warga. Adukan masalah sampah, fasilitas sekolah, atau kejadian apa pun untuk segera tim Ajik Pantau selesaikan.
-                </p>
+              <div className="md:w-5/12 flex flex-col">
+                <div className="mb-10 text-center md:text-left">
+                  <h2 className="font-serif text-4xl md:text-5xl font-normal leading-tight">
+                    Sampaikan Keluhan Anda
+                  </h2>
+                  <div className="mx-auto md:mx-0 h-0.5 w-20 bg-brand-primary mt-8 mb-6"></div>
+                  <p className="text-slate-500">
+                    Platform resmi pengaduan warga. Adukan masalah sampah, fasilitas sekolah, atau kejadian apa pun untuk segera tim Ajik Pantau selesaikan.
+                  </p>
+                </div>
+                <PublicFeed />
               </div>
-              <ReportForm onAdminTrigger={() => setActiveTab('admin')} />
+              <div className="md:w-7/12">
+                <ReportForm onAdminTrigger={() => setActiveTab('admin')} />
+              </div>
             </motion.div>
           ) : (
             <motion.div

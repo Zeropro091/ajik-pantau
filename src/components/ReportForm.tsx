@@ -316,7 +316,22 @@ export default function ReportForm({ onAdminTrigger }: { onAdminTrigger?: () => 
               )}
               <span className="pl-2">{loading ? 'Mengirim...' : 'Kirim Laporan Sekarang'}</span>
             </button>
-            <p className="text-center text-[10px] text-slate-400 italic">"Semua laporan akan ditindaklanjuti dalam waktu maksimal 2x24 jam."</p>
+            <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-4">
+              <p className="text-center sm:text-left text-[10px] text-slate-400 italic">"Semua laporan akan ditindaklanjuti dalam waktu maksimal 2x24 jam."</p>
+              
+              <button
+                type="button"
+                onClick={() => setFormData({
+                  reporterName: 'Warga Contoh',
+                  reporterPhone: '081234567890',
+                  description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Terdapat masalah fasilitas rusak di area sekitar balai desa, mohon segera ditindaklanjuti.',
+                  mediaUrl: ''
+                })}
+                className="text-[10px] px-3 py-1.5 border border-dashed border-slate-300 text-slate-500 hover:bg-slate-50 hover:border-brand-primary hover:text-brand-primary font-bold uppercase tracking-widest transition-colors rounded-sm"
+              >
+                Isi Data Dummy
+              </button>
+            </div>
           </motion.form>
         )}
       </AnimatePresence>
