@@ -15,6 +15,7 @@ export default function PublicFeed() {
     // Only query where status is in the allowed list to satisfy Firestore security rules
     const q = query(
       collection(db, 'reports'),
+      where('isPublic', '==', true),
       where('status', 'in', ['pending', 'processing', 'completed']),
       orderBy('createdAt', 'desc'),
       limit(5)
@@ -73,7 +74,7 @@ export default function PublicFeed() {
   }
 
   return (
-    <div className="mt-12 w-full">
+    <div className="md:mt-12 w-full">
       <h3 className="font-serif font-black uppercase tracking-widest text-xs text-brand-primary mb-6 flex items-center gap-2">
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-75"></span>

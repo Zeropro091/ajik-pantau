@@ -9,6 +9,11 @@ export interface Report {
   mediaUrl?: string;
   mediaType: MediaType;
   status: ReportStatus;
+  isPublic?: boolean;
+  trackingInfo?: {
+    fingerprint: string;
+    userAgent: string;
+  };
   createdAt: any; // Firestore Timestamp
   updatedAt: any; // Firestore Timestamp
 }

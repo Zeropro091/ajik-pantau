@@ -16,6 +16,7 @@ import {
   Calendar,
   User,
   Eye,
+  EyeOff,
   X,
   Phone,
   Trash2
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
       setUser(u);
       if (u) {
         // Bootstrap admin email check
-        const isBootstrapAdmin = ['putuari0911@gmail.com', 'sucayaputra8@gmail.com'].includes(u.email || '');
+        const isBootstrapAdmin = ['putuari0911@gmail.com', 'sucayaputra8@gmail.com', 'madejayasedana20004@gmail.com'].includes(u.email || '');
         
         try {
           const { getDoc } = await import('firebase/firestore');
@@ -96,6 +97,19 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       console.error('Error updating status:', error);
+    }
+  };
+
+  const handleVisibilityToggle = async (id: string, currentIsPublic: boolean | undefined) => {
+    try {
+      const reportRef = doc(db, 'reports', id);
+      await updateDoc(reportRef, {
+        isPublic: currentIsPublic === false ? true : false,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+      alert('Gagal mengubah pengaturan tampil publik. Pastikan Anda memiliki hak akses.');
     }
   };
 
@@ -140,6 +154,7 @@ export default function AdminDashboard() {
           status: 'pending',
           mediaType: 'none',
           mediaUrl: '',
+          isPublic: true
         },
         {
           reporterName: 'Siti Aminah',
@@ -148,6 +163,7 @@ export default function AdminDashboard() {
           status: 'processing',
           mediaType: 'none',
           mediaUrl: '',
+          isPublic: true
         },
         {
           reporterName: 'Agus Pratama',
@@ -156,6 +172,7 @@ export default function AdminDashboard() {
           status: 'completed',
           mediaType: 'none',
           mediaUrl: '',
+          isPublic: true
         },
         {
           reporterName: 'Linda Wijaya',
@@ -164,6 +181,7 @@ export default function AdminDashboard() {
           status: 'pending',
           mediaType: 'none',
           mediaUrl: '',
+          isPublic: true
         }
       ];
 
@@ -252,8 +270,8 @@ export default function AdminDashboard() {
           <h2 className="font-serif text-3xl font-normal leading-tight">Panel Pantauan</h2>
           <p className="text-slate-500 text-sm mt-2">Kelola dan tindak lanjuti laporan dari warga.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="text-right">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
+          <div className="text-left md:text-right flex-1 md:flex-none">
             <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status</span>
             <span className="text-xs font-bold text-brand-primary uppercase tracking-wider">{user.displayName}</span>
           </div>
@@ -282,12 +300,12 @@ export default function AdminDashboard() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex border border-border-subtle bg-white p-1">
+      <div className="flex border border-border-subtle bg-white p-1 overflow-x-auto">
         {['all', 'pending', 'processing', 'completed'].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`flex-1 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 min-w-[70px] px-2 md:px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
               filter === f 
                 ? 'bg-brand-primary text-white' 
                 : 'bg-white text-slate-400 hover:text-brand-primary'
@@ -328,24 +346,36 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 self-end md:self-center">
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto md:self-center mt-2 md:mt-0">
+              <button
+                onClick={() => handleVisibilityToggle(report.id, report.isPublic)}
+                className={`flex-1 md:flex-none justify-center text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border transition-all ${
+                  report.isPublic === false 
+                    ? 'border-slate-300 text-slate-400 bg-slate-50 hover:bg-slate-100' 
+                    : 'border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                }`}
+                title={report.isPublic === false ? "Tampilkan di Publik" : "Sembunyikan dari Publik"}
+              >
+                {report.isPublic === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                {report.isPublic === false ? 'Tersemb' : 'Publik'}
+              </button>
+              <button
+                onClick={() => setSelectedReport(report)}
+                className="flex-1 md:flex-none justify-center text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border border-border-subtle hover:border-brand-primary bg-white text-brand-primary transition-all hover:bg-slate-50"
+              >
+                Detail
+              </button>
               <button
                 onClick={() => handleDelete(report.id)}
-                className="text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border border-border-subtle hover:text-red-500 transition-all hover:bg-slate-50"
+                className="md:flex-none justify-center text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border border-border-subtle hover:text-red-500 transition-all hover:bg-slate-50"
                 title="Hapus Laporan"
               >
                 <Trash2 className="w-3 h-3" />
               </button>
-              <button
-                onClick={() => setSelectedReport(report)}
-                className="text-[10px] flex items-center gap-2 font-black uppercase tracking-widest px-4 py-2 border border-border-subtle hover:border-brand-primary bg-white text-brand-primary transition-all hover:bg-slate-50"
-              >
-                <Eye className="w-3 h-3" /> Detail
-              </button>
               <select
                 value={report.status}
                 onChange={(e) => handleStatusUpdate(report.id, e.target.value)}
-                className="text-[10px] font-black uppercase tracking-widest px-4 py-2 border border-brand-primary bg-white focus:outline-none cursor-pointer transition-all hover:bg-slate-50"
+                className="w-full md:w-auto text-[10px] font-black uppercase tracking-widest px-4 py-2 border border-brand-primary bg-white focus:outline-none cursor-pointer transition-all hover:bg-slate-50"
               >
                 <option value="pending">BELUM</option>
                 <option value="processing">PROSES</option>
@@ -452,11 +482,28 @@ export default function AdminDashboard() {
                       <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nomor Telepon</span>
                       <div className="font-mono text-sm flex items-center gap-2">
                         <Phone className="w-3 h-3 text-slate-400" />
-                        <a href={`https://wa.me/${selectedReport.reporterPhone.replace(/\\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-brand-accent hover:underline">
+                        <a href={`https://wa.me/${selectedReport.reporterPhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-brand-accent hover:underline">
                           {selectedReport.reporterPhone}
                         </a>
                       </div>
                     </div>
+                    {selectedReport.trackingInfo && (
+                      <div>
+                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pendeteksi Spam (Tracking)</span>
+                        <div className="bg-slate-50 border border-border-subtle p-2 text-[10px] space-y-1">
+                          <div className="flex justify-between border-b pb-1">
+                            <span className="text-slate-500">ID Perangkat</span>
+                            <span className="font-mono text-slate-700 bg-slate-200 px-1 py-0.5 rounded cursor-help" title="Identifikasi unik browser">{selectedReport.trackingInfo.fingerprint}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block mb-1">User Agent</span>
+                            <span className="font-mono text-[9px] text-slate-600 block bg-slate-200 p-1 line-clamp-2 hover:line-clamp-none transition-all cursor-crosshair">
+                              {selectedReport.trackingInfo.userAgent}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-4 space-y-reverse md:space-y-0 md:flex flex-col justify-between">
                     <div>
