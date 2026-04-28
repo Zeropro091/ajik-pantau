@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import ReportForm from './components/ReportForm';
 import AdminDashboard from './components/AdminDashboard';
 import PublicFeed from './components/PublicFeed';
+import MyReports from './components/MyReports';
 import { Megaphone, LayoutDashboard, ShieldCheck, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'user' | 'admin'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'admin' | 'my-reports'>('user');
   const [isScrolled, setIsScrolled] = useState(false);
+  const [hasMyReports, setHasMyReports] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,6 +18,12 @@ export default function App() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    // Check if user has reports in localStorage
+    const savedIds = JSON.parse(localStorage.getItem('my_reports') || '[]');
+    setHasMyReports(savedIds.length > 0);
+  }, [activeTab]); // re-check when tab changes
 
   return (
     <div className="min-h-screen">
@@ -29,7 +37,8 @@ export default function App() {
         <motion.div layout="position" className="origin-left">
           <motion.h1 
             layout="position"
-            className={`font-serif font-extrabold tracking-tighter uppercase leading-none transition-all duration-500 ease-in-out ${
+            onClick={() => setActiveTab('user')}
+            className={`cursor-pointer font-serif font-extrabold tracking-tighter uppercase leading-none transition-all duration-500 ease-in-out ${
               isScrolled ? 'text-2xl' : 'text-4xl'
             }`}
           >
@@ -45,6 +54,31 @@ export default function App() {
             </div>
           </div>
         </motion.div>
+
+        <div className="flex bg-white border border-border-subtle p-1 self-center">
+          <button
+            onClick={() => setActiveTab('user')}
+            className={`px-4 py-2 font-black uppercase text-[10px] tracking-widest transition-all ${
+              activeTab === 'user' ? 'bg-brand-primary text-white' : 'text-slate-500 hover:text-brand-primary'
+            }`}
+          >
+            Buat Laporan
+          </button>
+          
+          <div className="w-px bg-border-subtle mx-1" />
+          
+          <button
+            onClick={() => setActiveTab('my-reports')}
+            className={`px-4 py-2 font-black uppercase text-[10px] tracking-widest transition-all relative ${
+              activeTab === 'my-reports' ? 'bg-brand-primary text-white' : 'text-slate-500 hover:text-brand-primary'
+            }`}
+          >
+            Laporan Saya
+            {hasMyReports && (
+              <span className="absolute top-1.5 right-2 w-2 h-2 bg-emerald-500 rounded-full" />
+            )}
+          </button>
+        </div>
       </motion.header>
 
       {/* Main Content */}
@@ -79,6 +113,17 @@ export default function App() {
                   <PublicFeed />
                 </div>
               </div>
+            </motion.div>
+          ) : activeTab === 'my-reports' ? (
+            <motion.div
+              key="my-reports-view"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="p-4 sm:p-6 md:p-10"
+            >
+              <MyReports />
             </motion.div>
           ) : (
             <motion.div

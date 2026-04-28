@@ -11,6 +11,12 @@
         "mediaUrl": { "type": "string", "format": "uri", "description": "URL to the uploaded photo or video" },
         "mediaType": { "type": "string", "enum": ["image", "video", "none"] },
         "status": { "type": "string", "enum": ["pending", "processing", "completed"] },
+        "priority": { "type": "string", "enum": ["Urgent", "Tinggi", "Sedang", "Rendah"] },
+        "aiCategory": { "type": "string" },
+        "aiSubCategory": { "type": "string" },
+        "aiSentiment": { "type": "string", "enum": ["Keluhan", "Saran", "Apresiasi", "Pertanyaan"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "aiSummary": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -25,12 +31,29 @@
         "role": { "type": "string", "enum": ["admin", "superadmin"] }
       },
       "required": ["email", "role"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A message between the reporter and the admin regarding a specific report.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "description": "The content of the message" },
+        "senderType": { "type": "string", "enum": ["admin", "reporter"] },
+        "senderName": { "type": "string", "description": "Name of the sender" },
+        "fingerprint": { "type": "string", "description": "Fingerprint of the reporter (if sender is reporter)" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderType", "senderName", "createdAt"]
     }
   },
   "firestore": {
     "reports/{reportId}": {
       "schema": "Report",
       "description": "Collection of all citizen reports"
+    },
+    "reports/{reportId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages for a specific report (client and admin communication)"
     },
     "admins/{uid}": {
       "schema": "Admin",

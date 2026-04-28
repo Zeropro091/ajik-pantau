@@ -10,15 +10,16 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function PublicFeed() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     // Only query where status is in the allowed list to satisfy Firestore security rules
-    const q = query(
+    let q = query(
       collection(db, 'reports'),
       where('isPublic', '==', true),
       where('status', 'in', ['pending', 'processing', 'completed']),
       orderBy('createdAt', 'desc'),
-      limit(5)
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -35,6 +36,14 @@ export default function PublicFeed() {
 
     return () => unsubscribe();
   }, []);
+
+  // Compute available categories from fetched reports
+  const availableCategories = Array.from(new Set(reports.flatMap(r => r.categories || (r.category ? [r.category] : [])))).filter(c => c && c !== 'Other');
+
+  const filteredReports = selectedCategory 
+    ? reports.filter(r => (r.categories && r.categories.includes(selectedCategory)) || r.category === selectedCategory)
+    : reports;
+
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -83,13 +92,46 @@ export default function PublicFeed() {
         Pantauan Terkini
       </h3>
       
+      {availableCategories.length > 0 && (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-sm flex-shrink-0 transition-colors ${
+              selectedCategory === null 
+                ? 'bg-brand-primary text-white' 
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            Semua
+          </button>
+          {availableCategories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-sm flex-shrink-0 transition-colors ${
+                selectedCategory === cat 
+                  ? 'bg-slate-800 text-white' 
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-4 relative">
         {/* Connection line */}
         <div className="absolute left-[15px] top-4 bottom-4 w-px bg-slate-200 z-0"></div>
 
-        <AnimatePresence>
-          {reports.map((report, index) => (
-            <motion.div
+        {filteredReports.length === 0 ? (
+          <div className="relative z-10 pl-10 text-xs text-slate-500 italic">
+            Belum ada laporan di kategori ini.
+          </div>
+        ) : (
+          <AnimatePresence>
+            {filteredReports.map((report, index) => (
+              <motion.div
               key={report.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -101,9 +143,47 @@ export default function PublicFeed() {
               
               <div className="border border-border-subtle bg-white p-4 hover:border-brand-primary/30 transition-colors shadow-sm rounded-sm">
                 <div className="flex justify-between items-start mb-2 gap-2">
-                  <span className="text-xs font-bold text-slate-800 break-words flex-1">
-                    {maskName(report.reporterName)}
-                  </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 flex-1 flex-wrap">
+                    <span className="text-xs font-bold text-slate-800 break-words">
+                      {maskName(report.reporterName)}
+                    </span>
+                    {report.priority && (
+                      <span className={`text-[9px] font-black w-fit uppercase tracking-widest px-1.5 py-0.5 rounded-sm ${
+                        report.priority === 'Urgent' ? 'bg-[#ff0000] text-white animate-pulse' :
+                        report.priority === 'Tinggi' ? 'bg-red-600 text-white' :
+                        report.priority === 'Sedang' ? 'bg-orange-400 text-white' :
+                        'bg-slate-300 text-slate-800'
+                      }`}>
+                        {report.priority}
+                      </span>
+                    )}
+                    {report.aiCategory && report.aiCategory !== 'Lainnya' && (
+                      <span className="text-[9px] font-black w-fit text-white bg-indigo-600 uppercase tracking-widest px-1.5 py-0.5 rounded-sm">
+                        {report.aiCategory} {report.aiSubCategory && report.aiSubCategory !== 'Lainnya' && ` - ${report.aiSubCategory}`}
+                      </span>
+                    )}
+                    {report.tags && report.tags.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {report.tags.slice(0, 2).map((cat, idx) => (
+                          <span key={idx} className="text-[9px] font-black w-fit text-white bg-slate-800 uppercase tracking-widest px-1.5 py-0.5 rounded-sm">
+                            #{cat}
+                          </span>
+                        ))}
+                      </div>
+                    ) : report.categories && report.categories.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {report.categories.map((cat, idx) => (
+                          <span key={idx} className="text-[9px] font-black w-fit text-white bg-slate-800 uppercase tracking-widest px-1.5 py-0.5 rounded-sm">
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                    ) : report.category && report.category !== 'Other' ? (
+                      <span className="text-[9px] font-black w-fit text-white bg-slate-800 uppercase tracking-widest px-1.5 py-0.5 rounded-sm">
+                        {report.category}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-sm flex-shrink-0">
                     {getStatusIcon(report.status)}
                     <span className={
@@ -115,7 +195,11 @@ export default function PublicFeed() {
                     </span>
                   </div>
                 </div>
-                <p className="text-sm text-slate-600 line-clamp-2 mt-1 mb-3">{report.description}</p>
+                <p className="text-sm text-slate-600 line-clamp-2 mt-1 mb-3">
+                  {report.aiSummary ? (
+                    <span><span className="text-brand-primary">Ringkasan AI:</span> {report.aiSummary}</span>
+                  ) : report.description}
+                </p>
                 <div className="flex items-center justify-between mt-auto">
                   <span className="text-[10px] text-slate-400 capitalize">
                     {report.createdAt ? formatDistanceToNow(report.createdAt.toDate(), { locale: idLocale, addSuffix: true }) : 'Baru saja'}
@@ -129,7 +213,8 @@ export default function PublicFeed() {
               </div>
             </motion.div>
           ))}
-        </AnimatePresence>
+          </AnimatePresence>
+        )}
 
         {reports.length === 0 && (
           <div className="text-center py-8 text-sm text-slate-500 relative z-10 bg-white border border-dashed border-border-subtle rounded-sm">

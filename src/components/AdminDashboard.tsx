@@ -19,8 +19,10 @@ import {
   EyeOff,
   X,
   Phone,
-  Trash2
+  Trash2,
+  MessageCircle
 } from 'lucide-react';
+import ChatBox from './ChatBox';
 import { motion, AnimatePresence } from 'motion/react';
 
 const isVideoUrl = (url: string) => {
@@ -47,6 +49,7 @@ export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
@@ -205,7 +208,6 @@ export default function AdminDashboard() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      console.error('Login error:', error);
       if (error.code === 'auth/popup-blocked') {
         alert('Browser Anda memblokir popup login. Harap izinkan popup untuk situs ini, atau buka aplikasi di tab baru.');
       } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
@@ -213,6 +215,7 @@ export default function AdminDashboard() {
         // We can just ignore or show a small hint.
         console.warn('Login dibatalkan pengguna.');
       } else {
+        console.error('Login error:', error);
         alert('Terjadi kesalahan saat login: ' + error.message);
       }
     }
@@ -260,7 +263,7 @@ export default function AdminDashboard() {
     );
   }
 
-  const filteredReports = reports.filter(r => filter === 'all' || r.status === filter);
+  const filteredReports = reports.filter(r => (filter === 'all' || r.status === filter) && (priorityFilter === 'all' || r.priority === priorityFilter));
 
   return (
     <div className="space-y-10">
@@ -300,20 +303,37 @@ export default function AdminDashboard() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex border border-border-subtle bg-white p-1 overflow-x-auto">
-        {['all', 'pending', 'processing', 'completed'].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`flex-1 min-w-[70px] px-2 md:px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-              filter === f 
-                ? 'bg-brand-primary text-white' 
-                : 'bg-white text-slate-400 hover:text-brand-primary'
-            }`}
-          >
-            {f === 'all' ? 'Semua' : f === 'pending' ? 'Belum' : f === 'processing' ? 'Proses' : 'Selesai'}
-          </button>
-        ))}
+      <div className="flex flex-col md:flex-row gap-2">
+        <div className="flex flex-1 border border-border-subtle bg-white p-1 overflow-x-auto">
+          {['all', 'pending', 'processing', 'completed'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`flex-1 min-w-[70px] px-2 md:px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                filter === f 
+                  ? 'bg-brand-primary text-white' 
+                  : 'bg-white text-slate-400 hover:text-brand-primary'
+              }`}
+            >
+              {f === 'all' ? 'Semua Status' : f === 'pending' ? 'Belum' : f === 'processing' ? 'Proses' : 'Selesai'}
+            </button>
+          ))}
+        </div>
+        <div className="flex border border-border-subtle bg-white p-1 overflow-x-auto">
+          {['all', 'Urgent', 'Tinggi', 'Sedang', 'Rendah'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setPriorityFilter(f)}
+              className={`flex-1 min-w-[70px] px-2 md:px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                priorityFilter === f 
+                  ? 'bg-slate-900 text-white' 
+                  : 'bg-white text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              {f === 'all' ? 'Semua Prioritas' : f}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* List Implementation (Editorial Style) */}
@@ -325,7 +345,7 @@ export default function AdminDashboard() {
             className="group flex flex-col md:flex-row md:items-center justify-between p-6 border border-border-subtle hover:border-brand-primary bg-white transition-all gap-4"
           >
             <div className="space-y-2 flex-1">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm ${
                   report.status === 'completed' ? 'bg-[#D2FFD2] text-[#008000]' :
                   report.status === 'processing' ? 'bg-[#FFF4D2] text-[#996500]' :
@@ -333,11 +353,66 @@ export default function AdminDashboard() {
                 }`}>
                   {report.status === 'pending' ? 'Belum Diproses' : report.status === 'processing' ? 'Dalam Proses' : 'Selesai'}
                 </span>
+                {report.priority && (
+                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm ${
+                    report.priority === 'Urgent' ? 'bg-[#ff0000] text-white animate-pulse' :
+                    report.priority === 'Tinggi' ? 'bg-red-600 text-white' :
+                    report.priority === 'Sedang' ? 'bg-orange-400 text-white' :
+                    'bg-slate-300 text-slate-800'
+                  }`}>
+                    {report.priority}
+                  </span>
+                )}
+                {report.aiSentiment && (
+                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm ${
+                    report.aiSentiment === 'Keluhan' ? 'bg-red-100 text-red-700' :
+                    report.aiSentiment === 'Saran' ? 'bg-blue-100 text-blue-700' :
+                    report.aiSentiment === 'Apresiasi' ? 'bg-emerald-100 text-emerald-700' :
+                    'bg-slate-100 text-slate-700'
+                  }`}>
+                    {report.aiSentiment}
+                  </span>
+                )}
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
                   ID: {report.id.slice(0, 8)}
                 </span>
+                {report.aiCategory && report.aiCategory !== 'Lainnya' && (
+                  <span className="text-[10px] font-black text-white bg-indigo-600 uppercase tracking-widest px-2 py-0.5 rounded-sm">
+                    {report.aiCategory} {report.aiSubCategory && report.aiSubCategory !== 'Lainnya' && ` - ${report.aiSubCategory}`}
+                  </span>
+                )}
+                {report.tags && report.tags.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap">
+                    {report.tags.map((cat, idx) => (
+                      <span key={idx} className="text-[10px] font-black text-white bg-slate-800 uppercase tracking-widest px-2 py-0.5 rounded-sm">
+                        #{cat}
+                      </span>
+                    ))}
+                  </div>
+                ) : report.categories && report.categories.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap">
+                    {report.categories.map((cat, idx) => (
+                      <span key={idx} className="text-[10px] font-black text-white bg-slate-800 uppercase tracking-widest px-2 py-0.5 rounded-sm">
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                ) : report.category && report.category !== 'Other' ? (
+                  <span className="text-[10px] font-black text-white bg-slate-800 uppercase tracking-widest px-2 py-0.5 rounded-sm">
+                    {report.category}
+                  </span>
+                ) : null}
+                {report.hasUnreadAdmin && (
+                  <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#D80000] bg-[#FFD2D2] px-2 py-0.5 rounded-sm animate-pulse">
+                    <MessageCircle className="w-3 h-3" /> Chat Baru
+                  </span>
+                )}
               </div>
-              <h3 className="font-bold text-slate-900 leading-snug">{report.description}</h3>
+              <h3 className="font-bold text-slate-900 leading-snug">
+                {report.aiSummary ? (
+                  <span><span className="text-brand-primary">Ringkasan AI:</span> {report.aiSummary}</span>
+                ) : report.description}
+              </h3>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 font-bold uppercase tracking-wider">
                 <div className="flex items-center gap-1.5"><User className="w-3 h-3" /> {report.reporterName}</div>
                 <div className="flex items-center gap-1.5 font-normal lowercase tracking-normal italic opacity-70">
@@ -576,6 +651,11 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
+                
+                {/* Chat Section */}
+                <div className="mt-8">
+                  <ChatBox reportId={selectedReport.id!} isAdmin={true} reporterName={selectedReport.reporterName} />
+                </div>
               </div>
             </motion.div>
           </motion.div>

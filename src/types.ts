@@ -9,6 +9,14 @@ export interface Report {
   mediaUrl?: string;
   mediaType: MediaType;
   status: ReportStatus;
+  priority?: string; // 'Urgent' | 'Tinggi' | 'Sedang' | 'Rendah'
+  aiCategory?: string; // Infrastruktur, etc.
+  aiSubCategory?: string;
+  aiSentiment?: string; // 'Keluhan' | 'Saran' | 'Apresiasi' | 'Pertanyaan'
+  tags?: string[];
+  aiSummary?: string;
+  category?: string; // Legacy
+  categories?: string[];
   isPublic?: boolean;
   trackingInfo?: {
     fingerprint: string;
@@ -16,4 +24,6 @@ export interface Report {
   };
   createdAt: any; // Firestore Timestamp
   updatedAt: any; // Firestore Timestamp
+  hasUnreadAdmin?: boolean;
+  hasUnreadReporter?: boolean;
 }

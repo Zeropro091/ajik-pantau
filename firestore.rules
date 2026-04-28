@@ -19,7 +19,7 @@ service cloud.firestore {
     }
 
     function isValidReport(report) {
-      let allowedKeys = ['reporterName', 'reporterPhone', 'description', 'status', 'mediaType', 'mediaUrl', 'trackingInfo', 'isPublic', 'createdAt', 'updatedAt'];
+      let allowedKeys = ['reporterName', 'reporterPhone', 'description', 'category', 'categories', 'priority', 'aiCategory', 'aiSubCategory', 'aiSentiment', 'tags', 'aiSummary', 'status', 'mediaType', 'mediaUrl', 'trackingInfo', 'isPublic', 'hasUnreadAdmin', 'hasUnreadReporter', 'createdAt', 'updatedAt'];
       let keysDiff = report.diff({});
       return keysDiff.affectedKeys().hasOnly(allowedKeys)
           && report.keys().hasAll(['reporterName', 'reporterPhone', 'description', 'status', 'mediaType', 'createdAt', 'updatedAt'])
@@ -27,13 +27,38 @@ service cloud.firestore {
           && report.reporterPhone is string && report.reporterPhone.size() > 0 && report.reporterPhone.size() <= 30
           && report.description is string && report.description.size() > 0 && report.description.size() <= 2000
           && report.status in ['pending', 'processing', 'completed']
+          && (!('priority' in report) || report.priority in ['Urgent', 'Tinggi', 'Sedang', 'Rendah'])
+          && (!('aiSentiment' in report) || report.aiSentiment in ['Keluhan', 'Saran', 'Apresiasi', 'Pertanyaan'])
+          && (!('aiCategory' in report) || (report.aiCategory is string && report.aiCategory.size() <= 100))
+          && (!('aiSubCategory' in report) || (report.aiSubCategory is string && report.aiSubCategory.size() <= 100))
+          && (!('aiSummary' in report) || (report.aiSummary is string && report.aiSummary.size() <= 1000))
+          && (!('tags' in report) || (report.tags is list && report.tags.size() <= 10 && (report.tags.size() == 0 || report.tags[0] is string)))
+          && (!('category' in report) || (report.category is string && report.category.size() <= 50))
+          && (!('categories' in report) || (report.categories is list && report.categories.size() <= 5 && (report.categories.size() == 0 || report.categories[0] is string)))
           && (report.mediaType in ['image', 'video', 'none'])
           && (report.get('mediaUrl', '') is string)
           && (report.get('mediaUrl', '').size() <= 1048576) // max 1MB for base64 image limit, roughly
           && (report.get('isPublic', true) is bool)
           && (!('trackingInfo' in report) || (report.trackingInfo is map && report.trackingInfo.get('fingerprint', '') is string && report.trackingInfo.get('userAgent', '') is string))
+          && (report.get('hasUnreadAdmin', false) is bool)
+          && (report.get('hasUnreadReporter', false) is bool)
           && report.createdAt == request.time
           && report.updatedAt == request.time;
+    }
+
+    function isValidMessage(message, reportId) {
+      let allowedKeys = ['text', 'senderType', 'senderName', 'fingerprint', 'createdAt'];
+      let keysDiff = message.diff({});
+      return keysDiff.affectedKeys().hasOnly(allowedKeys)
+          && message.keys().hasAll(['text', 'senderType', 'senderName', 'createdAt'])
+          && message.text is string && message.text.size() > 0 && message.text.size() <= 2000
+          && message.senderType in ['admin', 'reporter']
+          && message.senderName is string && message.senderName.size() > 0 && message.senderName.size() <= 100
+          && message.createdAt == request.time
+          && (
+             (message.senderType == 'admin' && isAdmin()) ||
+             (message.senderType == 'reporter' && message.get('fingerprint', '') is string && message.get('fingerprint', '') == get(/databases/$(database)/documents/reports/$(reportId)).data.trackingInfo.fingerprint)
+          );
     }
 
     match /reports/{reportId} {
@@ -46,17 +71,38 @@ service cloud.firestore {
       // Allow getting specific report
       allow get: if true;
       
-      // Only authenticated admins can update and delete
+      // Admin can update status and public flag. Admin and Reporter can update unread status.
       allow update: if (
-        isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'isPublic', 'updatedAt']) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'isPublic', 'updatedAt']) &&
-        request.resource.data.status in ['pending', 'processing', 'completed'] &&
-        (request.resource.data.get('isPublic', true) is bool) &&
-        request.resource.data.updatedAt == request.time
-      );
+        (
+          isAdmin() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'priority', 'aiCategory', 'aiSubCategory', 'aiSentiment', 'tags', 'aiSummary', 'category', 'categories', 'isPublic', 'hasUnreadReporter', 'hasUnreadAdmin', 'updatedAt']) &&
+          request.resource.data.status in ['pending', 'processing', 'completed'] &&
+          (!('priority' in request.resource.data) || request.resource.data.priority in ['Urgent', 'Tinggi', 'Sedang', 'Rendah']) &&
+          (!('aiSentiment' in request.resource.data) || request.resource.data.aiSentiment in ['Keluhan', 'Saran', 'Apresiasi', 'Pertanyaan']) &&
+          (request.resource.data.get('isPublic', true) is bool) &&
+          (request.resource.data.get('category', '') is string) &&
+          (!('categories' in request.resource.data) || request.resource.data.categories is list) &&
+          (!('tags' in request.resource.data) || request.resource.data.tags is list) &&
+          (request.resource.data.get('aiCategory', '') is string) &&
+          (request.resource.data.get('aiSubCategory', '') is string) &&
+          (request.resource.data.get('aiSummary', '') is string)
+        ) ||
+        (
+          !isAdmin() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasUnreadAdmin', 'hasUnreadReporter', 'updatedAt'])
+        )
+      ) &&
+      (request.resource.data.get('hasUnreadAdmin', false) is bool) &&
+      (request.resource.data.get('hasUnreadReporter', false) is bool) &&
+      request.resource.data.updatedAt == request.time;
       
       allow delete: if isAdmin();
+      
+      match /messages/{messageId} {
+        allow read: if true;
+        allow create: if isValidMessage(request.resource.data, reportId);
+        allow update, delete: if false; // Messages are immutable
+      }
     }
 
     match /admins/{uid} {

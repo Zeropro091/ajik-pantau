@@ -107,8 +107,39 @@ export default function ReportForm({ onAdminTrigger }: { onAdminTrigger?: () => 
     setLoading(true);
 
     try {
-      await addDoc(collection(db, 'reports'), {
+      let aiData = {
+        categories: ["Lainnya"],
+        priority: "Sedang",
+        aiCategory: "Lainnya",
+        aiSubCategory: "Lainnya",
+        aiSentiment: "Pertanyaan",
+        tags: ["lainnya"],
+        aiSummary: formData.description.substring(0, 50) + "..."
+      };
+      
+      try {
+        const response = await fetch('/api/categorize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: formData.description })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          aiData = { ...aiData, ...data };
+        }
+      } catch (catError) {
+        console.error("Categorization error:", catError);
+      }
+
+      const docRef = await addDoc(collection(db, 'reports'), {
         ...formData,
+        categories: aiData.categories,
+        priority: aiData.priority,
+        aiCategory: aiData.aiCategory,
+        aiSubCategory: aiData.aiSubCategory,
+        aiSentiment: aiData.aiSentiment,
+        tags: aiData.tags,
+        aiSummary: aiData.aiSummary,
         mediaType: formData.mediaUrl ? (isVideoUrl(formData.mediaUrl) ? 'video' : 'image') : 'none',
         status: 'pending',
         isPublic: true,
@@ -119,6 +150,12 @@ export default function ReportForm({ onAdminTrigger }: { onAdminTrigger?: () => 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // Save to localStorage for tracking
+      const savedIds = JSON.parse(localStorage.getItem('my_reports') || '[]');
+      savedIds.push(docRef.id);
+      localStorage.setItem('my_reports', JSON.stringify(savedIds));
+
       setSuccess(true);
       setFormData({ reporterName: '', reporterPhone: '', description: '', mediaUrl: '' });
       setTimeout(() => setSuccess(false), 5000);
@@ -148,8 +185,8 @@ export default function ReportForm({ onAdminTrigger }: { onAdminTrigger?: () => 
             
             <motion.div 
               initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: [0, 1.2, 1], rotate: 0 }}
-              transition={{ delay: 0.2, type: "spring", duration: 0.7 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.2, type: "spring", duration: 0.7, bounce: 0.5 }}
               className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6"
             >
               <CheckCircle2 className="w-12 h-12 text-emerald-500" />
